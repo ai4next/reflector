@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Reflector",
+    "slug": "reflector",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0a0a0a"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "app.reflector",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Reflector needs microphone access to record conversations for AI-powered analysis."
+      }
+    },
+    "android": {
+      "package": "app.reflector",
+      "permissions": ["RECORD_AUDIO"]
+    },
+    "plugins": [
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Reflector needs microphone access to record conversations."
+        }
+      ]
+    ]
+  }
+}

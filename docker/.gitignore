@@ -1,0 +1,6 @@
+# Docker
+.env
+*.log
+
+# OS
+.DS_Store
