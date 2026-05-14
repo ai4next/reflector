@@ -1,15 +1,15 @@
 /**
- * Audio recording service.
+ * Audio recording service — optimized for on-device whisper.cpp.
  *
- * Records 5-minute WAV chunks using expo-av.
- * Each chunk is saved to the filesystem with a predictable naming scheme.
+ * Records 16kHz mono 16-bit PCM WAV chunks (whisper.cpp native format).
+ * Each chunk is saved with a predictable naming scheme.
  */
 
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 
 const CHUNK_DURATION_MS = 5 * 60 * 1000; // 5 minutes
-const SAMPLE_RATE = 44100;
+const SAMPLE_RATE = 16000; // whisper.cpp native sample rate
 
 export interface ChunkInfo {
   uri: string;
@@ -36,7 +36,34 @@ export async function initAudio(): Promise<void> {
 }
 
 /**
+ * Recording options compatible with whisper.cpp
+ * whisper.cpp requires: 16kHz, mono, 16-bit PCM (LINEARPCM on iOS)
+ */
+const WHISPER_RECORDING_OPTIONS: Audio.RecordingOptions = {
+  android: {
+    extension: '.wav',
+    outputFormat: Audio.AndroidOutputFormat.DEFAULT,
+    audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
+    sampleRate: SAMPLE_RATE,
+    numberOfChannels: 1,
+    bitRate: 256000,
+  },
+  ios: {
+    extension: '.wav',
+    outputFormat: Audio.IOSOutputFormat.LINEARPCM,
+    audioQuality: Audio.IOSAudioQuality.HIGH,
+    sampleRate: SAMPLE_RATE,
+    numberOfChannels: 1,
+    bitRate: 256000,
+    linearPCMBitDepth: 16,
+    linearPCMIsBigEndian: false,
+    linearPCMIsFloat: false,
+  },
+};
+
+/**
  * High-level recorder that manages 5-minute chunk lifecycle.
+ * Each chunk is recorded at 16kHz mono for direct whisper.cpp consumption.
  */
 export class ChunkedRecorder {
   private recording: Audio.Recording | null = null;
@@ -97,28 +124,8 @@ export class ChunkedRecorder {
 
     try {
       this.recording = new Audio.Recording();
-      await this.recording.prepareToRecordAsync({
-        android: {
-          extension: '.wav',
-          outputFormat: Audio.AndroidOutputFormat.DEFAULT,
-          audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
-          sampleRate: SAMPLE_RATE,
-          numberOfChannels: 1,
-          bitRate: 16 * SAMPLE_RATE,
-        },
-        ios: {
-          extension: '.wav',
-          outputFormat: Audio.IOSOutputFormat.LINEARPCM,
-          audioQuality: Audio.IOSAudioQuality.HIGH,
-          sampleRate: SAMPLE_RATE,
-          numberOfChannels: 1,
-          bitRate: 16 * SAMPLE_RATE,
-          linearPCMBitDepth: 16,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false,
-        },
-      });
 
+      await this.recording.prepareToRecordAsync(WHISPER_RECORDING_OPTIONS);
       await this.recording.startAsync();
       this.startTimestamp = Date.now();
 

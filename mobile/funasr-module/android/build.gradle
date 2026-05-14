@@ -1,0 +1,27 @@
+apply plugin: 'com.android.library'
+
+android {
+  namespace "expo.modules.funasr"
+  compileSdkVersion safeExtGet("compileSdkVersion", 34)
+
+  defaultConfig {
+    minSdkVersion safeExtGet("minSdkVersion", 23)
+    targetSdkVersion safeExtGet("targetSdkVersion", 34)
+  }
+
+  externalNativeBuild {
+    cmake {
+      path "CMakeLists.txt"
+    }
+  }
+}
+
+dependencies {
+  implementation project(':expo-modules-core')
+  // ONNX Runtime for Android
+  // implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.20.0'
+}
+
+def safeExtGet(prop, fallback) {
+  rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+}

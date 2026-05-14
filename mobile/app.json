@@ -2,7 +2,7 @@
   "expo": {
     "name": "Reflector",
     "slug": "reflector",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -13,12 +13,19 @@
       "supportsTablet": false,
       "bundleIdentifier": "app.reflector",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Reflector needs microphone access to record conversations for AI-powered analysis."
+        "NSMicrophoneUsageDescription": "Reflector needs microphone access to record conversations for AI-powered analysis.",
+        "NSFileUsageDescription": "Reflector needs file access to save and load the speech recognition model."
       }
     },
     "android": {
       "package": "app.reflector",
-      "permissions": ["RECORD_AUDIO"]
+      "permissions": [
+        "RECORD_AUDIO",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "plugins": [
       [
@@ -26,7 +33,18 @@
         {
           "microphonePermission": "Reflector needs microphone access to record conversations."
         }
-      ]
-    ]
+      ],
+      [
+        "expo-file-system",
+        {
+          "filePermission": "Reflector needs file access to save the speech recognition model."
+        }
+      ],
+      "expo-asset"
+    ],
+    "extra": {
+      "sttModel": "FunASR-Nano-2512",
+      "modelSource": "https://www.modelscope.cn/models/iic/funasr-nano-2512-onnx/resolve/master/"
+    }
   }
 }

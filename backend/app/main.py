@@ -11,6 +11,7 @@ from app.api.v1.sessions import router as sessions_router
 from app.api.v1.chunks import router as chunks_router
 from app.api.v1.transcripts import router as transcripts_router
 from app.api.v1.reflections import router as reflections_router
+from app.api.v1.transcriptions import router as transcriptions_router
 from app.config import settings
 from app.logging_config import configure_logging
 from app.middleware import RequestIDMiddleware
@@ -62,3 +63,4 @@ app.include_router(sessions_router, prefix="/api/v1")
 app.include_router(chunks_router, prefix="/api/v1")
 app.include_router(transcripts_router, prefix="/api/v1")
 app.include_router(reflections_router, prefix="/api/v1")
+app.include_router(transcriptions_router, prefix="/api/v1")

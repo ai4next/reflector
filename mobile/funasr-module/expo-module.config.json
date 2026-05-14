@@ -1,0 +1,9 @@
+{
+  "platforms": ["ios", "android"],
+  "ios": {
+    "modules": ["FunasrModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.funasr.FunasrModule"]
+  }
+}

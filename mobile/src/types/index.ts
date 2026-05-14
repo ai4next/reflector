@@ -95,6 +95,38 @@ export interface RecordingState {
 export type RecordingStatus =
   | { type: 'idle' }
   | { type: 'recording'; sessionId: string; chunkIndex: number }
-  | { type: 'uploading'; sessionId: string; chunkIndex: number }
-  | { type: 'processing'; sessionId: string; message: string }
+  | { type: 'transcribing'; sessionId: string; chunkIndex: number }
+  | { type: 'error'; message: string };
+
+// ─── On-device STT types ───
+
+/** A single transcribed segment from on-device STT */
+export interface LocalSegment {
+  text: string;
+  startTime: number;
+  endTime: number;
+  confidence: number;
+}
+
+/** A completed on-device transcription chunk */
+export interface LocalTranscription {
+  segments: LocalSegment[];
+  language: string;
+  chunkIndex: number;
+  durationMs: number;
+}
+
+/** Request to send transcribed text for AI analysis */
+export interface AnalysisRequest {
+  sessionId: string;
+  chunkIndex: number;
+  segments: LocalSegment[];
+  language: string;
+}
+
+/** Model download/load status */
+export type ModelStatus =
+  | { type: 'not_downloaded' }
+  | { type: 'downloading'; progress: number }
+  | { type: 'ready' }
   | { type: 'error'; message: string };

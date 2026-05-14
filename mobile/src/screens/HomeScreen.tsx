@@ -1,8 +1,11 @@
 /**
- * HomeScreen — main entry point with recorder and quick actions.
+ * HomeScreen — main entry point with recorder and live transcription.
+ *
+ * On first launch, shows model download screen.
+ * During recording, shows real-time transcription from on-device FunASR-Nano.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -12,12 +15,31 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Recorder } from '../components/Recorder';
+import { ModelDownloadScreen } from '../components/ModelDownloadScreen';
 import { Button, colors } from '../components/UI';
 import { useRecording } from '../hooks/useRecording';
 
 export function HomeScreen() {
   const navigation = useNavigation<any>();
-  const { isRecording, error, startRecording, stopRecording } = useRecording();
+  const [modelReady, setModelReady] = useState(false);
+
+  const {
+    isRecording,
+    error,
+    modelStatus,
+    latestSegments,
+    latestLanguage,
+    startRecording,
+    stopRecording,
+  } = useRecording();
+
+  // Model not downloaded — show download screen
+  if (!modelReady && modelStatus.type === 'not_downloaded') {
+    return <ModelDownloadScreen onComplete={() => setModelReady(true)} />;
+  }
+
+  // Model was downloaded but not yet loaded—still show the UI
+  const isTranscribing = false; // Derived from status checks
 
   return (
     <SafeAreaView style={styles.container}>
@@ -27,14 +49,26 @@ export function HomeScreen() {
           <Text style={styles.title}>Reflector</Text>
           <Text style={styles.subtitle}>反思者</Text>
           <Text style={styles.tagline}>
-            Record conversations · Transcribe · AI-powered reflection
+            Record conversations · On-device transcription · AI reflection
           </Text>
+          <View style={styles.badgeRow}>
+            <View style={styles.onDeviceBadge}>
+              <Text style={styles.badgeText}>On-device STT</Text>
+            </View>
+            <View style={styles.langBadge}>
+              <Text style={styles.badgeText}>中 / EN</Text>
+            </View>
+          </View>
         </View>
 
-        {/* Recorder */}
+        {/* Recorder with live transcription */}
         <Recorder
           isRecording={isRecording}
           error={error}
+          modelStatus={modelStatus}
+          latestSegments={latestSegments}
+          latestLanguage={latestLanguage}
+          isTranscribing={isTranscribing}
           onStart={() => startRecording()}
           onStop={stopRecording}
         />
@@ -61,13 +95,20 @@ export function HomeScreen() {
           <View style={styles.infoCard}>
             <Text style={styles.infoStep}>2</Text>
             <Text style={styles.infoText}>
-              Each chunk is transcribed and speaker-separated via WhisperX
+              Each chunk is transcribed on-device via whisper.cpp (privacy-first,
+              no audio upload)
             </Text>
           </View>
           <View style={styles.infoCard}>
             <Text style={styles.infoStep}>3</Text>
             <Text style={styles.infoText}>
               AI analyzes the conversation for themes, actions, and insights
+            </Text>
+          </View>
+          <View style={styles.privacyCard}>
+            <Text style={styles.privacyText}>
+              Privacy: All transcription runs locally on your device. Audio
+              files are deleted immediately after processing.
             </Text>
           </View>
         </View>
@@ -105,6 +146,32 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 13,
     textAlign: 'center',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  onDeviceBadge: {
+    backgroundColor: '#22c55e20',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#22c55e40',
+  },
+  langBadge: {
+    backgroundColor: '#3b82f620',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#3b82f640',
+  },
+  badgeText: {
+    color: colors.text,
+    fontSize: 11,
+    fontWeight: '600',
   },
   actions: {
     alignItems: 'center',
@@ -153,5 +220,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     flex: 1,
+  },
+  privacyCard: {
+    backgroundColor: '#22c55e10',
+    borderRadius: 10,
+    padding: 14,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#22c55e30',
+  },
+  privacyText: {
+    color: colors.textDim,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
   },
 });

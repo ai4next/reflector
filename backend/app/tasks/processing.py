@@ -188,6 +188,106 @@ def analyze_session(self, session_id: str):
     asyncio.run(_run())
 
 
+@celery_app.task(bind=True, max_retries=2, default_retry_delay=60, acks_late=True)
+def analyze_transcribed_chunk(self, session_id: str, chunk_id: str, chunk_index: int, language: str):
+    """Analyze a chunk that was already transcribed on-device via whisper.cpp.
+
+    Skips WhisperX — the segments are already in the database.
+    Directly runs AI analysis on the transcribed text.
+    """
+    from app.db.session import async_session_factory
+    from app.models.session import SessionModel, ChunkModel, SegmentModel, ReflectionModel
+    from app.services.analysis.factory import AnalysisProviderFactory
+    from app.services.analysis.base import AnalysisContext
+    from sqlalchemy import select, update as upd
+    import asyncio
+
+    async def _run():
+        async with async_session_factory() as db:
+            try:
+                # Verify chunk exists
+                chunk = (await db.execute(
+                    select(ChunkModel).where(ChunkModel.id == chunk_id)
+                )).scalar_one_or_none()
+                if not chunk:
+                    logger.error("Chunk %s not found for analysis", chunk_id)
+                    return
+
+                # Load segments
+                segments = (await db.execute(
+                    select(SegmentModel).where(SegmentModel.chunk_id == chunk_id)
+                    .order_by(SegmentModel.start_time)
+                )).scalars().all()
+
+                if not segments:
+                    logger.warning("No segments for chunk %s, skipping analysis", chunk_id)
+                    return
+
+                # Build context
+                speaker_labels = sorted(set(s.speaker_label for s in segments))
+                segment_dicts = [
+                    {"speaker_label": s.speaker_label, "text": s.text,
+                     "start_time": s.start_time, "end_time": s.end_time,
+                     "confidence": s.confidence}
+                    for s in segments
+                ]
+
+                # Run AI analysis
+                provider = AnalysisProviderFactory.get_provider()
+                context = AnalysisContext(
+                    session_id=session_id,
+                    chunk_id=chunk_id,
+                    transcript_text=" ".join(s.text for s in segments),
+                    segments=segment_dicts,
+                    speaker_labels=speaker_labels,
+                    chunk_index=chunk_index,
+                    language=language,
+                )
+                analysis = await provider.analyze(context)
+
+                # Store reflection
+                db.add(ReflectionModel(
+                    session_id=session_id,
+                    chunk_id=chunk_id,
+                    provider_name=analysis.provider_name,
+                    model_name=analysis.model_name,
+                    summary=analysis.summary,
+                    key_themes=analysis.key_themes,
+                    action_items=analysis.action_items,
+                    improvement_suggestions=analysis.improvement_suggestions,
+                    sentiment_overview=analysis.sentiment_overview,
+                    tokens_used=analysis.tokens_used,
+                    processing_time_ms=analysis.processing_time_ms,
+                    raw_response=analysis.raw_response,
+                ))
+                await db.commit()
+                logger.info("Analysis complete for on-device chunk %s", chunk_id)
+
+                # Check if session is complete and trigger session-level analysis
+                pending = (await db.execute(
+                    select(ChunkModel).where(
+                        ChunkModel.session_id == session_id,
+                        ChunkModel.status.in_(["uploaded", "processing"]),
+                    )
+                )).scalars().all()
+
+                if not pending:
+                    # All chunks processed — trigger session-level analysis
+                    analyze_session.delay(session_id)
+                    await db.execute(
+                        upd(SessionModel).where(SessionModel.id == session_id).values(
+                            status="processing"
+                        )
+                    )
+                    await db.commit()
+
+            except Exception as exc:
+                logger.error("Analysis failed for on-device chunk %s: %s", chunk_id, exc)
+                raise self.retry(exc=exc)
+
+    asyncio.run(_run())
+
+
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60, acks_late=True)
 def process_chunk(self, session_id: str, chunk_id: str, chunk_index: int, file_path: str):
     """5 分钟音频分片处理管线: WhisperX → DB 存储 → AI 分析 → 清理。"""

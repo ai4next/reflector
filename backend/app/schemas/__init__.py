@@ -97,3 +97,24 @@ class HealthResponse(BaseModel):
     gpu_available: bool = False
     gpu_device: Optional[str] = None
     database_connected: bool = False
+
+
+# ─── On-device transcription schemas ───
+
+class SegmentInput(BaseModel):
+    text: str
+    start_time: float
+    end_time: float
+    confidence: float = 0.0
+
+
+class TranscriptionSubmitRequest(BaseModel):
+    chunk_index: int
+    segments: list[SegmentInput]
+    language: str = "zh"
+
+
+class TranscriptionSubmitResponse(BaseModel):
+    chunk_id: uuid.UUID
+    status: str
+    segments_count: int

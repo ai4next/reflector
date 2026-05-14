@@ -2,19 +2,20 @@
  * Reflector API client.
  *
  * Wraps fetch with typed methods, error handling, and configurable base URL.
+ * Architecture: on-device STT + server-side AI analysis.
  */
 
 import {
   Session,
   SessionListItem,
   PaginatedSessions,
-  ChunkUploadResponse,
-  ChunkStatusResponse,
   Reflection,
   HealthResponse,
+  LocalSegment,
 } from '../types';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1';
+const BASE_URL =
+  process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 class ApiError extends Error {
   constructor(
@@ -26,7 +27,10 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
   const url = `${BASE_URL}${path}`;
   const res = await fetch(url, {
     ...options,
@@ -78,7 +82,15 @@ export const api = {
     return request(`/sessions/${id}`);
   },
 
-  updateSession(id: string, data: Partial<{ title: string; status: string; ended_at: string; total_duration_seconds: number }>): Promise<Session> {
+  updateSession(
+    id: string,
+    data: Partial<{
+      title: string;
+      status: string;
+      ended_at: string;
+      total_duration_seconds: number;
+    }>,
+  ): Promise<Session> {
     return request(`/sessions/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -89,13 +101,48 @@ export const api = {
     return request(`/sessions/${id}`, { method: 'DELETE' });
   },
 
-  // Chunks
+  // ─── New: Submit on-device transcription for AI analysis ───
+
+  /**
+   * Submit transcribed segments from on-device STT for server-side AI analysis.
+   * Replaces the old uploadChunk flow.
+   */
+  submitTranscription(data: {
+    sessionId: string;
+    chunkIndex: number;
+    segments: LocalSegment[];
+    language: string;
+  }): Promise<{ status: string; chunk_id: string }> {
+    return request(`/sessions/${data.sessionId}/transcriptions`, {
+      method: 'POST',
+      body: JSON.stringify({
+        chunk_index: data.chunkIndex,
+        segments: data.segments,
+        language: data.language,
+      }),
+    });
+  },
+
+  /**
+   * Trigger global (session-level) analysis on the full transcript.
+   */
+  triggerGlobalAnalysis(sessionId: string): Promise<{
+    status: string;
+    session_id: string;
+  }> {
+    return request(`/sessions/${sessionId}/analyze-global`, {
+      method: 'POST',
+    });
+  },
+
+  // ─── Legacy chunk upload (keep for backward compat) ───
+
   async uploadChunk(
     sessionId: string,
     chunkIndex: number,
     audioUri: string,
     checksum?: string,
-  ): Promise<ChunkUploadResponse> {
+  ): Promise<{ chunk_id: string; status: string }> {
     const formData = new FormData();
     formData.append('audio', {
       uri: audioUri,
@@ -118,7 +165,10 @@ export const api = {
     return body;
   },
 
-  getChunkStatus(sessionId: string, chunkId: string): Promise<ChunkStatusResponse> {
+  getChunkStatus(
+    sessionId: string,
+    chunkId: string,
+  ): Promise<{ id: string; chunk_index: number; status: string; error_message: string | null }> {
     return request(`/sessions/${sessionId}/chunks/${chunkId}/status`);
   },
 
@@ -132,11 +182,13 @@ export const api = {
     return request(`/sessions/${sessionId}/reflections`);
   },
 
-  regenerateReflection(sessionId: string): Promise<{ status: string; session_id: string; chunks_queued: number }> {
+  regenerateReflection(
+    sessionId: string,
+  ): Promise<{ status: string; session_id: string; chunks_queued: number }> {
     return request(`/sessions/${sessionId}/regenerate-reflection`, {
       method: 'POST',
     });
   },
 };
 
-export { ApiError }; // re-export for error handling in hooks
+export { ApiError };
