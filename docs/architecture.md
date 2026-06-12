@@ -1,5 +1,7 @@
 # 架构文档
 
+> 本文档描述 M1（核心录音管线）的现状架构。产品定位见 [vision.md](vision.md)。M2+ 的演进设计见 [roadmap.md](roadmap.md)、[design-context.md](design-context.md)（位置/声纹/语义时间）、[design-growth.md](design-growth.md)（每日反思/承诺/RAG/教练）、[design-knowledge.md](design-knowledge.md)（数据资产/知识库）、[design-learning.md](design-learning.md)（学习提升系统）。
+
 ## 1. 整体架构
 
 ```
@@ -410,7 +412,55 @@ def process_chunk(self, session_id, chunk_index, file_path):
 
 ---
 
-## 7. 错误处理
+## 7. 演进方向（M2+，规划中）
+
+以下为已规划但尚未实现的架构演进，详细设计见对应文档：
+
+### 7.1 情境化管线（M2，[design-context.md](design-context.md)）
+
+处理管线在 Phase 3（diarization）后新增声纹阶段：
+
+```
+Phase 3   diarization (现有)
+Phase 3.5 声纹提取与匹配 (新增):
+          每个 SPEAKER_xx 提取 embedding → 与 speakers 声纹库余弦匹配
+          → 命中绑定 speaker_id; embedding 存入 chunk_speaker_embeddings 供事后认领
+Phase 4   assign_word_speakers (现有)
+Phase 5   存 segments 时一并写 speaker_id
+```
+
+约束：音频处理完即删（见 §2.2），声纹提取必须在 `process_chunk` 内完成。
+
+### 7.2 新增数据模型
+
+```
+users ──1:N── sessions ──1:N── chunks ──1:N── segments
+        │         │                │              │
+        │         └── place_id ──> places         └── speaker_id ──> speakers
+        │         │                                chunk_speaker_embeddings
+        │         └──1:N── reflections (扩展 period_type: chunk/session/daily/weekly)
+        ├──1:N── commitments        (M3, 承诺追踪)
+        ├──1:N── embeddings         (M3, pgvector RAG)
+        ├──1:N── assets ──1:N── asset_links   (M3, 数据资产层, 见 design-knowledge.md)
+        │            └──1:1── review_states   (M3, 间隔重复复习, 见 design-learning.md)
+        ├──1:N── skills ──1:N── skill_evidence (M4, 技能证据轨迹)
+        └──1:N── learning_topics               (M4, 学习主题)
+```
+
+### 7.3 新增基础设施
+
+| 组件 | 用途 | 里程碑 |
+|------|------|--------|
+| 移动端 expo-location | 录音时采集 GPS, 逆地理编码 | M2 |
+| pgvector 扩展 | 声纹 embedding 匹配 + RAG 向量检索 | M2/M3 |
+| Celery Beat | 每日 22:00 触发 L2 日报任务 | M3 |
+| bge-m3 (本地 embedding) | segments/summaries 向量化 | M3 |
+
+成长闭环（L2 日报、承诺追踪、RAG 检索、AI 教练）的设计见 [design-growth.md](design-growth.md)；数据资产层（assets 统一模型、用户上传、知识提炼、全量导出）见 [design-knowledge.md](design-knowledge.md)；学习提升系统（技能证据轨迹、复习队列、练习意图与应用检测）见 [design-learning.md](design-learning.md)。
+
+---
+
+## 8. 错误处理
 
 | 类别 | 场景 | 处理方式 |
 |------|------|---------|

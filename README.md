@@ -1,10 +1,12 @@
 # Reflector (反思者)
 
-**记录对话 · 区分说话人 · AI 驱动的深度反思**
+**一面诚实的镜子：它记得你真实的言行，并帮你从中看见自己。**
 
-Reflector 是一款录音 + 语音转文字 + 说话人分离 + AI 反思分析的移动应用。它每 5 分钟将录制的音频转为带说话人标签的文本，然后通过 AI 分析为你提供对话总结、主题提炼、行动建议和改进方向。
+Reflector 是一个**基于真实证据的自我认知系统**。它把你实际说过的话（录音转写 + 说话人分离）、见过的人、去过的地方沉淀为归你所有的个人数据资产，再由 AI 在证据之上生成反思日报、追踪你许下的承诺、提出只有你能回答的好问题——帮你看见真实的自己，而不是你以为的自己。
 
-音频仅在临时处理期间保留，转写成功后立即删除——只存储文本。
+产品定位与原则见 [docs/vision.md](docs/vision.md)。
+
+隐私是定位本身：音频仅在临时处理期间保留，转写成功后立即删除——只存储文本。
 
 ---
 
@@ -38,8 +40,14 @@ Reflector 是一款录音 + 语音转文字 + 说话人分离 + AI 反思分析�
 └──────────────────────────────────────┘
 ```
 
+产品愿景与定位见 [docs/vision.md](docs/vision.md)。
 详细架构说明见 [docs/architecture.md](docs/architecture.md)。
 完整 API 文档见 [docs/api.md](docs/api.md)。
+演进路线图见 [docs/roadmap.md](docs/roadmap.md)。
+个人数据资产与知识库设计见 [docs/design-knowledge.md](docs/design-knowledge.md)。
+学习提升系统设计见 [docs/design-learning.md](docs/design-learning.md)。
+情境化设计（何人/何时/何地）见 [docs/design-context.md](docs/design-context.md)。
+个人成长扩展设计见 [docs/design-growth.md](docs/design-growth.md)。
 部署指南见 [docs/deployment.md](docs/deployment.md)。
 性能优化见 [docs/performance.md](docs/performance.md)。
 常见问题见 [docs/troubleshooting.md](docs/troubleshooting.md)。
@@ -138,10 +146,16 @@ reflector/
 │   └── Dockerfile
 │
 └── docs/                     # 文档
-    ├── architecture.md
-    ├── api.md
-    ├── setup.md
-    └── design-decisions.md
+    ├── vision.md             # 产品愿景与定位 (所有设计文档的上游)
+    ├── roadmap.md            # 演进路线图 (M1→M4)
+    ├── architecture.md       # 架构文档 (M1 现状 + 演进方向)
+    ├── api.md                # API 文档 (含 M2/M3 规划接口)
+    ├── design-context.md     # 情境化设计 (何人/何时/何地)
+    ├── design-growth.md      # 个人成长扩展 (日报/承诺/RAG/教练)
+    ├── design-knowledge.md   # 个人数据资产与知识库 (assets/提炼/导出)
+    ├── design-learning.md    # 学习提升系统 (技能/复习/练习意图/应用检测)
+    ├── design-decisions.md   # 设计决策记录
+    └── setup.md
 ```
 
 ---
@@ -209,6 +223,12 @@ npx expo start
 - [ ] 后台录音能力
 - [ ] 推送通知替代轮询
 - [x] 会话级全局分析 (per-chunk + session-level 双重分析)
+
+### 演进规划 (见 [docs/roadmap.md](docs/roadmap.md))
+
+- [ ] M2 — 情境化: 位置采集与语义地点、声纹身份绑定 ([docs/design-context.md](docs/design-context.md))
+- [ ] M3 — 成长闭环 + 资产层: 每日反思日报、承诺追踪、回忆检索 RAG、资产库与上传、复习队列 ([docs/design-growth.md](docs/design-growth.md), [docs/design-knowledge.md](docs/design-knowledge.md))
+- [ ] M4 — 增强: AI 教练、技能模型与练习意图、人际图谱、情绪曲线 ([docs/design-learning.md](docs/design-learning.md))
 
 ---
 

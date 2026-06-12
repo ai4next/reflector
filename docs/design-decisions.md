@@ -165,3 +165,47 @@ WhisperX CPU 上 5 分钟音频需 3-5 分钟, 可能跟不上录音速度。GPU
 | init_db() (开发) | 零配置启动 | 无版本管理; 无法回滚 |
 
 **决策**: 开发用 init_db() 快速启动, 生产用 Alembic 管理迁移。`Base.metadata.create_all` 在开发环境中保持可用。
+
+---
+
+## 15. pgvector vs 独立向量数据库 (M2/M3 规划)
+
+| 方案 | 优点 | 缺点 |
+|------|------|------|
+| **pgvector (PG 扩展)** | 复用现有 PostgreSQL; 向量与结构化数据同库, 可联合过滤 (speaker/时间/地点); 无额外运维 | 超大规模性能不及专用库 |
+| Qdrant / Milvus | 性能强; 功能丰富 | 多一个服务要部署维护; 数据双写一致性问题 |
+
+**决策**: pgvector。单用户场景数据量级（数万 segments）远未达到专用向量库的优势区间，且 RAG 检索需要按说话人/时间/地点做结构化过滤——同库联合查询天然支持。
+
+**SQLite 开发环境降级**: pgvector 不可用时声纹匹配降级为内存余弦计算 (numpy)，接口不变。
+
+---
+
+## 16. 位置存储: sessions.metadata JSONB vs 独立列
+
+**决策**: 原始 GPS 坐标存入现有 `sessions.metadata` JSONB（零迁移风险），语义地点匹配后写 `sessions.place_id` 外键。原始坐标是日志性数据无需查询索引；`place_id` 才是分析维度，值得独立列。
+
+---
+
+## 17. 声纹方案: pyannote embedding + 均值更新
+
+| 方案 | 说明 |
+|------|------|
+| **pyannote/embedding (选中)** | 与现有 diarization 同生态, 256 维; 余弦阈值 ~0.72 绑定 |
+| ECAPA-TDNN (speechbrain) | 准确率相当, 192 维, 引入新依赖 |
+
+**关键约束**: 音频处理后即删（决策见 README 隐私原则），因此声纹提取必须在 `process_chunk` 管线内完成，且每个 chunk 的 SPEAKER_xx embedding 落库 (`chunk_speaker_embeddings`)，否则用户事后认领时无音频可提取。
+
+**双标识设计**: `segments.speaker_label`（SPEAKER_00, chunk 内局部）与 `segments.speaker_id`（全局身份, nullable）并存——label 保留 diarization 原始输出可回溯, id 用于跨会话聚合。
+
+---
+
+## 18. L2 周期反思: 喂摘要 vs 喂原文
+
+**决策**: L2 每日/每周反思只输入当期各 session 的 session-level 摘要 + 情境元数据（地点/参与人/时长），不输入原始转写。token 成本降一个数量级，且日报关注的是跨会话模式而非细节；需要细节时通过 RAG 按需检索。
+
+---
+
+## 19. 周期反思存储: 复用 reflections 表 vs 新表
+
+**决策**: 复用 `reflections` 表，新增 `period_type` (chunk/session/daily/weekly/monthly)、`period_date`、`content` JSONB 列，`session_id` 改为 nullable。与现有 per-chunk/session-level 的 `chunk_id=null` 判别方式一脉相承，避免两套几乎相同的表结构。

@@ -310,6 +310,78 @@
 
 ---
 
+## 规划中的接口 (M2/M3, 未实现)
+
+以下接口为 [roadmap.md](roadmap.md) 规划的演进方向，设计细节见 [design-context.md](design-context.md) 与 [design-growth.md](design-growth.md)。
+
+### 地点管理 (M2)
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/places` | 用户常用地点列表 |
+| `POST` | `/places` | 创建语义地点 `{name, category, lat, lng, radius_meters}` |
+| `PATCH` | `/places/{id}` | 更新地点 |
+| `DELETE` | `/places/{id}` | 删除地点 |
+
+`POST /sessions` / `PATCH /sessions/{id}` 将接受可选 `location` 字段：
+
+```json
+{
+  "title": "...",
+  "location": {"lat": 39.99, "lng": 116.31, "accuracy": 12.5}
+}
+```
+
+Session 响应将增加 `place: {id, name, category} | null` 与 `geocoded_address`。
+
+### 说话人管理 (M2)
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/speakers` | 已认领的说话人列表 |
+| `POST` | `/speakers` | 创建说话人 `{display_name, is_self}` |
+| `PATCH` | `/speakers/{id}` | 重命名 |
+| `DELETE` | `/speakers/{id}` | 删除（声纹一并删除） |
+| `POST` | `/sessions/{sid}/chunks/{cid}/claim-speaker` | 认领/纠错: `{speaker_label, speaker_id}` |
+
+Segment 响应将增加 `speaker: {id, display_name} | null`（`speaker_label` 保留为 diarization 原始标签）。
+
+### 成长闭环 (M3)
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/reflections/daily` | 手动触发当日反思日报（默认 Celery Beat 每日 22:00 自动生成） |
+| `GET` | `/reflections?period_type=daily` | 按周期类型查询反思（chunk/session/daily/weekly） |
+| `GET` | `/commitments?status=open` | 承诺清单 |
+| `PATCH` | `/commitments/{id}` | 更新状态 `{status: done\|dropped, due_date}` |
+| `POST` | `/ask` | 自然语言回忆检索: `{question}` → `{answer, sources[]}` |
+
+### 数据资产与知识库 (M3/M4, 见 [design-knowledge.md](design-knowledge.md))
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/assets` | 创建资产（multipart 上传文件 或 JSON 提交 note/link） |
+| `GET` | `/assets?asset_type=&tag=&speaker_id=&q=` | 资产列表，多维过滤 + 关键词 |
+| `GET` | `/assets/{id}` | 资产详情（含关联实体与引用关系） |
+| `PATCH` / `DELETE` | `/assets/{id}` | 编辑 / 删除（含向量与文件） |
+| `GET` | `/assets/{id}/related` | 相关资产（向量相似 + 实体共现） |
+| `POST` | `/assets/{id}/distill` | 手动触发知识提炼 (M4) |
+| `GET/POST/PATCH` | `/learning-topics` | 学习主题管理 (M4) |
+| `GET` | `/export` | 全量导出个人数据资产（Markdown + JSON 打包） |
+
+### 学习提升 (M3/M4, 见 [design-learning.md](design-learning.md))
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/knowledge/review-queue` | 今日到期知识卡（含 AI 检验问题） |
+| `POST` | `/knowledge/{id}/review` | 提交回顾 `{quality: 0-5, answer_text?}` |
+| `GET/POST/PATCH` | `/skills` | 技能管理 (M4) |
+| `GET` | `/skills/{id}/evidence` | 技能证据轨迹，引用原始 segments (M4) |
+| `POST` | `/sessions/{id}/practice-intention` | 录音前设定刻意练习意图 (M4) |
+| `GET` | `/learning/weekly-report` | 学以致用周报 (M4) |
+
+---
+
 ## 错误格式
 
 所有错误响应使用统一格式:
